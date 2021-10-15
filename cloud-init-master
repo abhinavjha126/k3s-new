@@ -1,0 +1,79 @@
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    ssh-authorized-keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOdera+GnDRsLOtuBrpN/cVZD+7a/FwW02EdWZ8lwwXh root@ubuntu-s-1vcpu-2gb-blr1-01
+
+repo_update: true
+repo_upgrade: all
+package_update: true
+package_upgrade: true
+
+#apt:
+#  sources:
+
+packages:
+  - openssh-server
+  - curl
+  - python3
+  - python3-pip
+  - python3-pexpect
+  - wireguard
+  - apt-transport-https
+
+runcmd:
+  - systemctl enable ssh
+  - systemctl start ssh
+  - sysctl -p /etc/sysctl.d/98-ip-forward.conf
+  - update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+  - wget https://github.com/k3s-io/k3s/releases/download/v1.21.5%2Bk3s1/k3s -O /usr/local/bin/k3s
+  - chmod 700 /usr/local/bin/k3s
+  - curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+  - chmod 700 get_helm.sh
+  - ./get_helm.sh
+  - ./tmp/k3sinstall.sh
+  - ./tmp/installcontainers.sh
+  - k3s kubectl config set-cluster default --server=https://10.100.0.10:6443 --kubeconfig /etc/rancher/k3s/k3s.yaml
+  - [kubectl, apply, -f, /tmp/traefik.yml]
+  - [
+      kubectl,
+      create,
+      -f,
+      https://docs.projectcalico.org/manifests/tigera-operator.yaml,
+    ]
+  - [kubectl, apply, -f, /tmp/calico.yml]
+  - [kubectl, apply, -f, /tmp/prod.yml]
+  - mount | grep "/sys/fs/bpf"
+  - kubectl patch installation.operator.tigera.io default --type merge -p '{"spec":{"calicoNetwork":{"linuxDataplane":"BPF", "hostPorts":null}}}'
+  - [
+      kubectl,
+      -n,
+      echo-prod,
+      create,
+      secret,
+      tls,
+      ssl,
+      --key=/tmp/prod.key,
+      --cert=/tmp/prod.crt,
+    ]
+  - [
+      curl,
+      -o,
+      /usr/local/bin/calicoctl,
+      -O,
+      -L,
+      "https://github.com/projectcalico/calicoctl/releases/download/v3.20.2/calicoctl",
+    ]
+  - [chmod, 700, /usr/local/bin/calicoctl]
+  - sleep 60
+  - ./tmp/calico-wireguard.sh
+  - kubectl apply -f /tmp/staging.yml
+  #- kubectl apply -f /tmp/prometheus.yml
+  - helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  - helm repo update
+  - helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack
+
+
+

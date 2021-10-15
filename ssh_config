@@ -1,0 +1,23 @@
+Host jumphost
+  User ubuntu
+  IdentityFile ~/.ssh/laptop-aws
+  Hostname 13.37.152.27
+  
+Host ip-*
+  User ubuntu
+  IdentityFile ~/.ssh/laptop-aws
+  ProxyJump jumphost
+
+
+Host ip-10-100-0-10
+  Hostname ip-10-100-0-10
+Host ip-10-100-1-10
+  Hostname ip-10-100-1-10
+Host ip-10-100-2-10
+  Hostname ip-10-100-2-10
+Host ip-10-100-10-10
+  Hostname ip-10-100-10-10
+Host ip-10-100-11-10
+  Hostname ip-10-100-11-10
+Host ip-10-100-12-10
+  Hostname ip-10-100-12-10

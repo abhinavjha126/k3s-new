@@ -1,0 +1,52 @@
+#cloud-config
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    ssh-authorized-keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOdera+GnDRsLOtuBrpN/cVZD+7a/FwW02EdWZ8lwwXh root@ubuntu-s-1vcpu-2gb-blr1-01
+
+write_files:
+  # Create file to be used when enabling ip forwarding
+  - path: /etc/sysctl.d/98-ip-forward.conf
+    content: |
+      net.ipv4.ip_forward = 1
+      net.ipv6.conf.all.forwarding = 1
+  # bash script to install k3s service
+  - path: /tmp/k3s-install.sh
+    permissions: 0700
+    owner: root
+    content: |
+      #!/bin/bash
+      set -e
+      curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="${k3s-version}" sh -s - agent --server https://ip-10-100-0-10:6443 \
+      --token "k3scentral" \
+      --node-label device.k3s.redcarpetup.com/roles=worker
+
+repo_update: true
+repo_upgrade: all
+package_update: true
+package_upgrade: true
+
+apt:
+  sources:
+    kubernetes.list:
+      source: "deb http://apt.kubernetes.io/ kubernetes-focal main"
+
+packages:
+  - openssh-server
+  - curl
+  - python3
+  - python3-pip
+  - python3-pexpect
+  - wireguard
+
+runcmd:
+  - systemctl enable ssh
+  - systemctl start ssh
+  - sysctl -p /etc/sysctl.d/98-ip-forward.conf
+  - update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+  - wget https://github.com/k3s-io/k3s/releases/download/v1.21.5%2Bk3s1/k3s -O /usr/local/bin/k3s
+  - chmod 700 /usr/local/bin/k3s
+  - bash /tmp/k3s-install.sh
